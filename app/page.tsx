@@ -78,7 +78,7 @@ export default function Home() {
           
           <Link href="/maquina" className="nav-item">
             <Cpu size={20} />
-            <span>Máquinas</span>
+            <span>Lab2</span>
           </Link>
 
           <Link href="#" className="nav-item">
