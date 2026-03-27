@@ -71,14 +71,24 @@ export default function Home() {
           <span>SENAI | Tech</span>
         </div>
         <nav className="nav-list">
-          <Link href="/" className="nav-item active">
+          <Link href="/" className="nav-item ">
             <LayoutDashboard size={20} />
             <span>Dashboard</span>
           </Link>
           
-          <Link href="/maquina" className="nav-item">
+          <Link href="/" className="nav-item ">
             <Cpu size={20} />
-            <span>Lab2</span>
+            <span>Maquinas</span>
+          </Link>
+
+          <Link href="/calibracao" className="nav-item">
+            <Cpu size={20} />
+            <span>Calibração</span>
+          </Link>
+
+          <Link href="/robo" className="nav-item">
+            <Cpu size={20} />
+            <span>Robo</span>
           </Link>
 
           <Link href="#" className="nav-item">

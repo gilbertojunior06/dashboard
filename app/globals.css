@@ -85,6 +85,16 @@
   margin-bottom: 8px;
   transition: 0.2s;
 }
+.nav-item:hover {
+  background-color: #3b82f6; /* O azul que você gostou */
+  color: #ffff22;           /* Texto branco ao passar o mouse */
+  cursor: pointer;
+}
+
+/* Opcional: Se quiser que o ícone também mude de cor */
+.nav-item:hover svg {
+  stroke: #3b82f6;
+}
 
 /* Corrigido para .active funcionar com o atributo no JSX */
 .nav-item.active {
