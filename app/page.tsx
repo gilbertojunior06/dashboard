@@ -1,5 +1,6 @@
 "use client"
 
+import '@/app/cadastro.css';
 import React, { useSyncExternalStore } from "react";
 import Link from "next/link";
 import { 
@@ -74,6 +75,11 @@ export default function Home() {
           <Link href="/" className="nav-item ">
             <LayoutDashboard size={20} />
             <span>Dashboard</span>
+          </Link>
+
+          <Link href="/cadastro" className="nav-item ">
+            <Cpu size={20} />
+            <span>Cadastro Funcionarios</span>
           </Link>
           
           <Link href="/" className="nav-item ">

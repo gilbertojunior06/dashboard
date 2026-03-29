@@ -1,178 +1,211 @@
 "use client";
 
-import React, { useState, useSyncExternalStore } from 'react';
+import React, { useState, useRef, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { 
   ArrowLeft, Zap, Power, AlertTriangle, 
   ChevronUp, ChevronDown, CircleDot
 } from 'lucide-react';
 
-// --- COMPONENTE DE BOTÃO INDUSTRIAL PREMIUM ---
+// --- INTERFACES ---
+interface ActuatorValues {
+  alvo: string;
+  forcaD: string;
+  velD: string;
+  unitP: string;
+  unitV: string;
+}
 
-const IndustrialButton = ({ Icon, label, isActive, onClick }: { 
-  Icon: React.ElementType, 
-  label: string, 
-  isActive: boolean,
-  onClick: () => void 
-}) => (
-  <div 
-    onClick={onClick}
-    className="flex items-center gap-3 w-full group cursor-pointer active:translate-y-0.5 transition-all select-none"
-  >
-    {/* Estrutura do Botão Metálico com Relevo */}
-    <div className="relative w-10 h-10 rounded-full border-[3px] border-[#94a3b8] bg-gradient-to-br from-[#475569] to-[#1e293b] shadow-[4px_4px_8px_rgba(0,0,0,0.4),inset_1px_1px_2px_rgba(255,255,255,0.3)] flex items-center justify-center">
-      {/* O LED central com efeito de brilho real */}
-      <div className={`w-5 h-5 rounded-full border border-black/40 flex items-center justify-center transition-all duration-300 ${
-        isActive 
-        ? 'bg-amber-400 shadow-[0_0_15px_#fbbf24,inset_0_0_4px_white]' 
-        : 'bg-zinc-800 opacity-60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)]'
-      }`}>
-        <Icon size={12} className={isActive ? 'text-amber-900' : 'text-zinc-500'} />
-      </div>
-    </div>
-    <span className="text-[11px] font-black text-slate-900 uppercase leading-none tracking-tight drop-shadow-sm">
-      {label}
-    </span>
-  </div>
-);
+interface DataFieldProps {
+  label: string;
+  value: string | number;
+  unit: string;
+  isReal?: boolean;
+  onChange?: (val: string) => void;
+}
 
-const IndicatorLed = ({ color, label, active }: { color: string, label: string, active: boolean }) => (
-  <div className="flex items-center gap-2">
-    <div className={`w-8 h-8 rounded-full border border-black/40 transition-all duration-500 ${
-      active 
-      ? `${color} shadow-[0_0_10px_currentColor,inset_0_0_4px_rgba(255,255,255,0.5)]` 
-      : 'bg-zinc-400 opacity-30'
-    }`}></div>
-    <span className="text-[10px] font-bold text-slate-800 uppercase tracking-tighter">{label}</span>
-  </div>
-);
+interface IndustrialButtonProps {
+  Icon: React.ElementType;
+  label: string;
+  isActive: boolean;
+  onClick: () => void;
+  isAlarm?: boolean;
+}
 
-const DataBox = ({ label, value, unit }: { label: string, value: string, unit?: string }) => (
-  <div className="border border-black/80 bg-white/90 p-2 flex flex-col items-center flex-1 shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)]">
-    <span className="text-[11px] font-black uppercase text-slate-500 mb-1 border-b border-slate-200 w-full text-center pb-0.5">{label}</span>
-    <div className="text-sm font-mono font-black text-black tracking-tight">
-      {value} <span className="text-[16px] font-bold text-slate-500">{unit}</span>
-    </div>
-  </div>
-);
-
-// --- PAINEL DO ATUADOR ---
-
-interface ActuatorProps {
+interface ActuatorPanelProps {
   title: string;
   colorClass: string;
   accentColor: string;
-  initialValues: { alvo: string; forcaD: string; velD: string; unitP: string; unitV: string; }
+  initialValues: ActuatorValues;
 }
 
-const ActuatorPanel = ({ title, colorClass, accentColor, initialValues }: ActuatorProps) => {
-  const [btnLiga, setBtnLiga] = useState(false);
-  const [btnHome, setBtnHome] = useState(false);
-  const [btnStart, setBtnStart] = useState(false);
-  const [btnReset, setBtnReset] = useState(false);
+// --- COMPONENTES ---
+const DataField = ({ label, value, onChange, unit, isReal }: DataFieldProps) => (
+  <div className={`flex flex-col items-center justify-center p-2 rounded-lg border transition-all min-h-[65px] ${
+    isReal ? 'bg-slate-100 border-slate-200 shadow-inner' : 'bg-white border-blue-200 shadow-sm focus-within:border-blue-400'
+  }`}>
+    <span className="text-[9px] font-black uppercase text-slate-400 mb-1 tracking-tighter leading-none">{label}</span>
+    <div className="flex items-baseline gap-1">
+      {isReal || !onChange ? (
+        <span className="text-lg font-mono font-black text-blue-600 leading-none">{value}</span>
+      ) : (
+        <input 
+          type="text" 
+          value={value} 
+          onChange={(e) => onChange(e.target.value)}
+          className="w-16 text-center text-lg font-mono font-black text-slate-800 bg-transparent outline-none leading-none"
+        />
+      )}
+      <span className="text-[9px] font-bold text-slate-400 uppercase leading-none">{unit}</span>
+    </div>
+  </div>
+);
+
+const IndustrialButton = ({ Icon, label, isActive, onClick, isAlarm = false }: IndustrialButtonProps) => (
+  <div onClick={onClick} className="flex items-center gap-3 w-full group cursor-pointer active:translate-y-0.5 transition-all select-none">
+    <div className={`relative w-10 h-10 min-w-[40px] rounded-full border-2 transition-all duration-200 flex items-center justify-center ${
+      isActive 
+        ? (isAlarm ? 'border-red-500 bg-red-50 shadow-md' : 'border-blue-500 bg-blue-50 shadow-md') 
+        : 'border-slate-300 bg-white shadow-sm'
+    }`}>
+      <Icon size={18} className={isActive ? (isAlarm ? 'text-red-600' : 'text-blue-600') : 'text-slate-400'} />
+    </div>
+    <span className="text-[10px] font-black text-slate-600 uppercase tracking-tight leading-none">{label}</span>
+  </div>
+);
+
+const ActuatorPanel = ({ title, colorClass, accentColor, initialValues }: ActuatorPanelProps) => {
+  const [vals, setVals] = useState<ActuatorValues>(initialValues);
+  const [isServoOn, setIsServoOn] = useState(false);
+  const [isHome, setIsHome] = useState(false);
+  const [isMoving, setIsMoving] = useState(false);
+  const [hasAlarm, setHasAlarm] = useState(false);
   const [posicao, setPosicao] = useState(0.00);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // LÓGICA DE MOVIMENTO JOG
+  const handleJog = (delta: number) => {
+    if (!isServoOn || hasAlarm) return;
+    setPosicao(prev => parseFloat((prev + delta).toFixed(2)));
+    setIsMoving(true);
+    setIsHome(false); // Saiu do Home se moveu
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setIsMoving(false), 300);
+  };
+
+  // LÓGICA DO BOTÃO HOME (CORRIGIDA)
+  const handleHomeAction = () => {
+    if (!isServoOn || hasAlarm) return;
+    if (!isHome) {
+      setPosicao(0);
+      setIsHome(true);
+      setIsMoving(false);
+    } else {
+      setIsHome(false); // Permite desligar o LED se clicar de novo
+    }
+  };
+
+  // LÓGICA DO BOTÃO START
+  const handleStartAction = () => {
+    if (!isServoOn || hasAlarm) return;
+    const nextMovingState = !isMoving;
+    setIsMoving(nextMovingState);
+    if (nextMovingState) setIsHome(false); // Desliga Home ao iniciar movimento
+  };
 
   return (
-    <div className={`border-2 border-black ${colorClass} p-4 w-full max-w-[360px] flex flex-col gap-4 shadow-[10px_10px_20px_rgba(0,0,0,0.4)] relative overflow-hidden`}>
-      {/* Brilho reflexivo no topo do painel */}
-      <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/20 to-transparent pointer-events-none" />
-      
-      <h2 className={`border-2 border-black ${accentColor} text-center py-2 text-lg font-black text-black uppercase shadow-sm relative z-10`}>
-        {title}
-      </h2>
-
-      <div className="grid grid-cols-2 gap-4 border border-black bg-black/5 p-3 backdrop-blur-[2px] rounded-sm">
-        <div className="flex flex-col gap-4">
-          <IndustrialButton Icon={Zap} label="Liga Servo" isActive={btnLiga} onClick={() => setBtnLiga(!btnLiga)} />
-          <IndustrialButton Icon={Power} label="Servo Home" isActive={btnHome} onClick={() => { setBtnHome(true); setPosicao(0); setTimeout(() => setBtnHome(false), 500); }} />
-          <IndustrialButton Icon={Power} label="Start" isActive={btnStart} onClick={() => setBtnStart(!btnStart)} />
-          <IndustrialButton Icon={AlertTriangle} label="Reset Alarm" isActive={btnReset} onClick={() => { setBtnReset(true); setTimeout(() => setBtnReset(false), 800); }} />
-        </div>
+    <div className="p-1 bg-slate-200 rounded-[22px] shadow-xl border border-white/50 h-fit">
+      <div className={`${colorClass} p-5 w-[380px] min-h-[580px] rounded-[18px] border border-slate-300 flex flex-col gap-5 relative overflow-hidden`}>
         
-        <div className="flex flex-col gap-3 justify-center pl-3 border-l-2 border-black/20">
-          <IndicatorLed color="bg-lime-400" label="Servo ON" active={btnLiga} />
-          <IndicatorLed color="bg-lime-400" label="Home OK" active={posicao === 0} />
-          <IndicatorLed color="bg-orange-500" label="Start Movimento" active={btnStart} />
-          <IndicatorLed color="bg-red-600" label=" Servo em Alarme" active={btnReset} />
+        <h2 className={`${accentColor} text-center py-3 text-lg font-black text-white uppercase tracking-tighter rounded-xl shadow-lg italic border-b-4 border-black/10`}>
+          {title}
+        </h2>
+
+        <div className="flex gap-4 bg-white/40 px-8 py-5 rounded-2xl border border-white shadow-inner min-h-[190px]">
+          <div className="flex flex-col gap-3 flex-1 justify-between">
+            <IndustrialButton Icon={Zap} label="Servo On" isActive={isServoOn} onClick={() => !hasAlarm && setIsServoOn(!isServoOn)} />
+            <IndustrialButton Icon={CircleDot} label="Home" isActive={isHome} onClick={handleHomeAction} />
+            <IndustrialButton Icon={Power} label="Start" isActive={isMoving} onClick={handleStartAction} />
+            <IndustrialButton Icon={AlertTriangle} label="Reset" isActive={hasAlarm} onClick={() => setHasAlarm(!hasAlarm)} isAlarm />
+          </div>
+          
+          <div className="flex flex-col gap-5 justify-center min-w-[120px]">
+            {[ 
+              { label: 'SERVO ON', active: isServoOn, color: 'bg-emerald-400' },
+              { label: 'HOME OK', active: isHome, color: 'bg-emerald-500' },
+              { label: 'SERVO EM MOVIMENTO', active: isMoving, color: 'bg-blue-400 animate-pulse' },
+              { label: 'SERVO EM ALARME', active: hasAlarm, color: 'bg-red-500' }
+            ].map((led) => (
+              <div key={led.label} className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-full border-4 border-white shadow-md transition-all duration-300 ${led.active ? `${led.color} shadow-[0_0_20px_rgba(255,255,255,0.7)]` : 'bg-slate-300'}`} />
+                <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter leading-none whitespace-nowrap">{led.label}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-2 gap-2 relative z-10">
-        <DataBox label="Posição Alvo" value={initialValues.alvo} unit={initialValues.unitP} />
-        <DataBox label="Posição Atual" value={posicao.toFixed(2)} unit={initialValues.unitP} />
-        <DataBox label="Força Desejada" value={initialValues.forcaD} unit="%" />
-        <DataBox label="Força Atual" value={btnLiga ? initialValues.forcaD : "0"} unit="%" />
-        <DataBox label="Velocidade" value={initialValues.velD} unit={initialValues.unitV} />
-        <DataBox label="Real" value={btnStart ? initialValues.velD : "0"} unit={initialValues.unitV} />
-      </div>
+        <div className="grid grid-cols-2 gap-2 bg-white/30 p-2 rounded-xl border border-white/50 shadow-inner">
+            <DataField label="Set Alvo" value={vals.alvo} onChange={(v) => setVals({...vals, alvo: v})} unit={vals.unitP} />
+            <DataField label="Pos. Real" value={posicao.toFixed(2)} isReal unit={vals.unitP} />
+            <DataField label="Set Força" value={vals.forcaD} onChange={(v) => setVals({...vals, forcaD: v})} unit="%" />
+            <DataField label="Torque" value={isMoving ? vals.forcaD : (isServoOn ? "5" : "0")} isReal unit="%" />
+            <DataField label="Set Velo." value={vals.velD} onChange={(v) => setVals({...vals, velD: v})} unit={vals.unitV} />
+            <DataField label="Velo. Real" value={isMoving ? vals.velD : "0"} isReal unit={vals.unitV} />
+        </div>
 
-      <div className="flex justify-around py-3 border-2 border-black bg-black/10 shadow-inner">
-        <button 
-          onMouseDown={() => btnLiga && setPosicao(p => p + 0.1)}
-          className="flex flex-col items-center group"
-        >
-          <div className="bg-gradient-to-b from-white to-slate-200 p-3 rounded-full border-2 border-black shadow-[4px_4px_0px_black] group-active:translate-y-1 group-active:shadow-none transition-all">
-            <ChevronUp size={24} className="text-black" />
-          </div>
-          <span className="text-[10px] font-black mt-2 uppercase text-black">JOG +</span>
-        </button>
-        <button 
-          onMouseDown={() => btnLiga && setPosicao(p => p - 0.1)}
-          className="flex flex-col items-center group"
-        >
-          <div className="bg-gradient-to-b from-white to-slate-200 p-3 rounded-full border-2 border-black shadow-[4px_4px_0px_black] group-active:translate-y-1 group-active:shadow-none transition-all">
-            <ChevronDown size={24} className="text-black" />
-          </div>
-          <span className="text-[10px] font-black mt-2 uppercase text-black">JOG -</span>
-        </button>
+        <div className="flex justify-around py-4 bg-slate-300/30 rounded-2xl border border-white shadow-inner mt-auto">
+          <button onMouseDown={() => handleJog(0.1)} className="flex flex-col items-center gap-1 active:scale-90 transition-all">
+            <div className="bg-white p-2 rounded-xl border border-slate-300 shadow-sm"><ChevronUp size={24} className="text-slate-600" /></div>
+            <span className="text-[9px] font-black text-slate-500 uppercase leading-none">JOG +</span>
+          </button>
+          <button onMouseDown={() => handleJog(-0.1)} className="flex flex-col items-center gap-1 active:scale-90 transition-all">
+            <div className="bg-white p-2 rounded-xl border border-slate-300 shadow-sm"><ChevronDown size={24} className="text-slate-600" /></div>
+            <span className="text-[9px] font-black text-slate-500 uppercase leading-none">JOG -</span>
+          </button>
+        </div>
       </div>
     </div>
   );
 };
 
-// --- PÁGINA PRINCIPAL ---
-
-function useIsClient() {
-  return useSyncExternalStore(() => () => {}, () => true, () => false);
-}
+// --- COMPONENTE PRINCIPAL ---
+const emptySubscribe = () => () => {};
 
 export default function ActuatorDashboard() {
-  const isClient = useIsClient();
-  if (!isClient) return null;
+  const isClient = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
+
+  if (!isClient) return <div className="min-h-screen bg-slate-50" />; 
 
   return (
-    <div className="min-h-screen bg-[#020617] p-8 font-sans flex flex-col items-center bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-900 to-black">
-      <header className="w-full max-w-7xl mb-12 flex items-center justify-between border-b-2 border-slate-800 pb-6">
-        <Link href="/" className="flex items-center gap-3 text-slate-500 hover:text-white transition-all font-black uppercase text-xs tracking-widest group">
-          <div className="bg-slate-800 p-2 rounded-full group-hover:bg-slate-700 transition-colors">
-            <ArrowLeft size={16} />
-          </div>
-          Voltar ao Sistema
+    <div className="min-h-screen bg-slate-50 p-4 md:p-8 flex flex-col items-center font-sans">
+      <header className="w-full max-w-7xl mb-8 flex justify-between items-center border-b border-slate-200 pb-4">
+        <Link href="/" className="flex items-center gap-2 text-slate-400 hover:text-blue-600 transition-all font-black uppercase text-[10px] tracking-widest leading-none">
+          <ArrowLeft size={16} /> Voltar ao Painel
         </Link>
-        <div className="flex items-center gap-4 bg-slate-900/50 px-4 py-2 rounded-full border border-slate-700">
-          <CircleDot size={16} className="text-lime-400 animate-pulse" />
-          <span className="text-slate-200 font-black text-xs uppercase tracking-widest">Painel de Controle SENAI | Tech</span>
+        <div className="flex items-center gap-3 bg-white px-5 py-2 rounded-full border border-slate-200 shadow-sm">
+          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+          <span className="text-slate-500 font-black text-[10px] uppercase tracking-wider leading-none">SENAI | TECH HUB</span>
         </div>
       </header>
 
-      <main className="w-full max-w-7xl flex flex-wrap justify-center gap-10">
+      <main className="flex flex-wrap justify-center gap-8 w-full">
         <ActuatorPanel 
-          title="Atuador 300mm" colorClass="bg-[#0ea5e9]" accentColor="bg-[#0284c7]"
-          initialValues={{ alvo: "150.00", forcaD: "50", velD: "150", unitP: "mm", unitV: "mm/s" }}
+          title="Atuador Eletrico 300 mm" colorClass="bg-blue-50/50" accentColor="bg-blue-600" 
+          initialValues={{ alvo: "150.0", forcaD: "50", velD: "100", unitP: "mm", unitV: "mm/s" }} 
         />
         <ActuatorPanel 
-          title="Atuador Rotativo" colorClass="bg-[#fb923c]" accentColor="bg-[#f97316]"
-          initialValues={{ alvo: "90.00", forcaD: "50", velD: "20", unitP: "°", unitV: "°/s" }}
+          title="Atuador Rotativo" colorClass="bg-slate-100" accentColor="bg-slate-700" 
+          initialValues={{ alvo: "90.0", forcaD: "40", velD: "30", unitP: "°", unitV: "°/s" }} 
         />
         <ActuatorPanel 
-          title="Atuador 100mm" colorClass="bg-[#10b981]" accentColor="bg-[#059669]"
-          initialValues={{ alvo: "85.00", forcaD: "36", velD: "150", unitP: "mm", unitV: "mm/s" }}
+          title="Atuador Eletrico 100 mm" colorClass="bg-emerald-50/50" accentColor="bg-emerald-600" 
+          initialValues={{ alvo: "10.0", forcaD: "80", velD: "120", unitP: "mm", unitV: "mm/s" }} 
         />
       </main>
-      
-      <footer className="mt-20 text-slate-600 font-bold text-[10px] uppercase tracking-[0.3em]">
-        Sistema de Monitoramento Industrial v2.0
-      </footer>
     </div>
   );
 }

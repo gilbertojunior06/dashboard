@@ -1,0 +1,150 @@
+/* CADASTRO CSS - ESTILO DASHBOARD MODERNO */
+
+.cadastro-wrapper {
+  max-width: 950px;
+  margin: 40px auto;
+  padding: 0 20px;
+  font-family: var(--font-geist-sans), sans-serif;
+}
+
+.card {
+  background: #ffffff;
+  padding: 40px;
+  border-radius: 24px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.04);
+}
+
+.card h2 {
+  font-size: 28px;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 8px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  margin-top: 32px;
+}
+
+.form-group label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  display: block;
+}
+
+input, select {
+  width: 100%;
+  height: 50px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  font-size: 15px;
+  transition: all 0.2s;
+}
+
+input:focus, select:focus {
+  background: #fff;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+  outline: none;
+}
+
+.btn-submit {
+  background: #0f172a; /* Botão Dark - Elegante */
+  color: white;
+  padding: 16px 32px;
+  border-radius: 12px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  margin-top: 32px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.btn-submit:hover {
+  background: #000;
+  transform: translateY(-2px);
+}
+
+/* TABELA */
+.table-container {
+  margin-top: 40px;
+  background: white;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th {
+  background: #f8fafc;
+  padding: 20px;
+  text-align: left;
+  font-size: 12px;
+  color: #64748b;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+td {
+  padding: 20px;
+  border-top: 1px solid #f1f5f9;
+  font-size: 14px;
+  color: #1e293b;
+}
+
+/* BADGE DINÂMICO */
+.badge-setor {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-block;
+}
+
+/* Botão Voltar */
+.btn-voltar {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #64748b;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* Botão Cancelar Edição */
+.btn-cancelar {
+    background: #e2e8f0;
+    color: #475569;
+    padding: 16px 24px;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    margin-top: 32px;
+    font-weight: 600;
+}
+
+/* Badge Ajustado */
+.badge-setor {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    border: 1px solid currentColor;
+}
