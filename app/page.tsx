@@ -92,6 +92,11 @@ export default function Home() {
             <span>Calibração</span>
           </Link>
 
+          <Link href="/separacao_cores" className="nav-item ">
+            <Cpu size={20} />
+            <span>Separação Cores</span>
+          </Link>
+
           <Link href="/robo" className="nav-item">
             <Cpu size={20} />
             <span>Robo</span>
