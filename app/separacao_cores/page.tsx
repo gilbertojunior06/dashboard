@@ -29,8 +29,7 @@ export default function DashboardRobotica() {
     const timer = setInterval(() => setTime(new Date().toLocaleTimeString('pt-BR')), 1000);
     
     // Conexão WebSocket - Usando localhost para evitar conflitos de IP
-    const socket = new WebSocket('wss://7c5a-2804-290-e0e-9a00-186d-3ca3-a801-fdf.ngrok-free.app/ws/robotica');
-
+    const socket = new WebSocket('wss://3b43-2804-290-e0e-9a00-186d-3ca3-a801-fdf.ngrok-free.app/ws/robotica');
     socket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
