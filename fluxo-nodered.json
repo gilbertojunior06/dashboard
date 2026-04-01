@@ -1,0 +1,76 @@
+[
+    {
+        "id": "ae2bc780f7e13496",
+        "type": "tab",
+        "label": "Fluxo 2",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "fe8f2d26ca2986e8",
+        "type": "function",
+        "z": "ae2bc780f7e13496",
+        "name": "function 3",
+        "func": "// Simulador de Separação de Cores\nconst cores = [\"Azul\", \"Verde\", \"Vermelho\"];\nconst corSorteada = cores[Math.floor(Math.random() * cores.length)];\n\n// Simulação de lógica de eficiência\nconst tempoCiclo = (Math.random() * (4.5 - 3.2) + 3.2).toFixed(1);\nconst totalProcessadas = context.get('total') || 1248;\nconst novoTotal = totalProcessadas + 1;\ncontext.set('total', novoTotal);\n\nmsg.payload = {\n    pecas_processadas: novoTotal,\n    meta: 1500,\n    eficiencia: Math.floor((novoTotal / 1500) * 100),\n    tempo_ciclo: parseFloat(tempoCiclo),\n    taxa_acerto: (Math.random() * (99.5 - 97.0) + 97.0).toFixed(1),\n    cor_detectada: corSorteada,\n    status_robo: \"Operando\"\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 440,
+        "y": 220,
+        "wires": [
+            [
+                "3428ac5207b9aad3"
+            ]
+        ]
+    },
+    {
+        "id": "3428ac5207b9aad3",
+        "type": "websocket out",
+        "z": "ae2bc780f7e13496",
+        "name": "",
+        "server": "f83d6c051f22594c",
+        "client": "",
+        "x": 660,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "43472c0ea3042147",
+        "type": "inject",
+        "z": "ae2bc780f7e13496",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "2",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 160,
+        "y": 200,
+        "wires": [
+            [
+                "fe8f2d26ca2986e8"
+            ]
+        ]
+    },
+    {
+        "id": "f83d6c051f22594c",
+        "type": "websocket-listener",
+        "path": "/ws/robotica",
+        "wholemsg": "false"
+    }
+]
