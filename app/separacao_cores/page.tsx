@@ -8,6 +8,24 @@ import {
 } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
 
+// DEFINIÇÃO DE TIPOS PARA OS COMPONENTES
+interface MetricCardProps {
+  title: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}
+
+interface MiniGraphProps {
+  color: string;
+  data: { pv: number }[];
+}
+
+interface KpiBarProps {
+  label: string;
+  value: number | string;
+  color: string;
+}
+
 export default function DashboardRobotica() {
   const [time, setTime] = useState('--:--:--');
   
@@ -15,34 +33,41 @@ export default function DashboardRobotica() {
   const [pecas, setPecas] = useState(1248);
   const [ciclo, setCiclo] = useState(4.2);
   const [acerto, setAcerto] = useState(98.5);
+  const [corDetectada, setCorDetectada] = useState("Aguardando...");
   
-  // Histórico para os gráficos (faz a linha se mover)
+  // Histórico para os gráficos
   const [histPecas, setHistPecas] = useState([{ pv: 1100 }, { pv: 1150 }, { pv: 1180 }, { pv: 1248 }]);
   const [histCiclo, setHistCiclo] = useState([{ pv: 4.5 }, { pv: 4.0 }, { pv: 4.2 }, { pv: 4.1 }]);
 
   // --- CONFIGURAÇÕES DE META ---
   const META_TOTAL = 1500;
-  const eficiencia = ((pecas / META_TOTAL) * 100).toFixed(0);
+  const eficiencia = Number(((pecas / META_TOTAL) * 100).toFixed(0));
 
   useEffect(() => {
-    // Relógio
     const timer = setInterval(() => setTime(new Date().toLocaleTimeString('pt-BR')), 1000);
     
-    // Conexão WebSocket - Usando localhost para evitar conflitos de IP
+    // Conexão WebSocket
     const socket = new WebSocket('wss://3b43-2804-290-e0e-9a00-186d-3ca3-a801-fdf.ngrok-free.app/ws/robotica');
+    
     socket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         
-        if (data.pecas !== undefined) {
-          setPecas(data.pecas);
-          setHistPecas(prev => [...prev.slice(-10), { pv: data.pecas }]); // Mantém os últimos 10 pontos
+        // MAPEAMENTO CORRETO DAS VARIÁVEIS DO NODE-RED
+        if (data.pecas_processadas !== undefined) {
+          setPecas(data.pecas_processadas);
+          setHistPecas(prev => [...prev.slice(-10), { pv: data.pecas_processadas }]);
         }
-        if (data.ciclo !== undefined) {
-          setCiclo(data.ciclo);
-          setHistCiclo(prev => [...prev.slice(-10), { pv: data.ciclo }]);
+        if (data.tempo_ciclo !== undefined) {
+          setCiclo(Number(data.tempo_ciclo));
+          setHistCiclo(prev => [...prev.slice(-10), { pv: Number(data.tempo_ciclo) }]);
         }
-        if (data.acerto !== undefined) setAcerto(data.acerto);
+        if (data.taxa_acerto !== undefined) {
+          setAcerto(Number(data.taxa_acerto));
+        }
+        if (data.cor_detectada !== undefined) {
+          setCorDetectada(data.cor_detectada);
+        }
 
       } catch (error) {
         console.error("Erro ao processar dados do Node-RED:", error);
@@ -78,8 +103,8 @@ export default function DashboardRobotica() {
             <span className="text-xl font-black font-mono text-white tracking-widest">{time}</span>
           </div>
           <div className="flex gap-2">
-            <HeaderButton icon={<Bell size={22} />} badge />
-            <HeaderButton icon={<User size={22} />} className="bg-blue-600 text-white" />
+             <button className="p-3 rounded-xl border border-slate-100 relative"><Bell size={22} /><span className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full border-2 border-white" /></button>
+             <button className="p-3 rounded-xl border border-slate-100 bg-blue-600 text-white"><User size={22} /></button>
           </div>
         </div>
       </header>
@@ -88,7 +113,6 @@ export default function DashboardRobotica() {
       <main className="flex flex-1 p-6 gap-6 overflow-hidden min-h-0">
         
         <div className="w-[28%] flex flex-col gap-4 overflow-y-auto pr-2">
-          {/* PEÇAS */}
           <MetricCard title="PEÇAS PROCESSADAS" icon={<Inbox size={20} className="text-slate-300"/>}>
             <div className="flex items-baseline gap-2 mb-1">
               <span className="text-5xl font-black text-slate-900 tracking-tighter">{pecas.toLocaleString('pt-BR')}</span>
@@ -101,7 +125,6 @@ export default function DashboardRobotica() {
             <MiniGraph color="#3b82f6" data={histPecas} />
           </MetricCard>
 
-          {/* CICLO */}
           <MetricCard title="TEMPO DE CICLO (S)" icon={<Clock size={20} className="text-slate-300"/>}>
             <div className="flex items-baseline gap-2 mb-1">
               <span className={`text-5xl font-black tracking-tighter ${ciclo > 4.0 ? 'text-red-500' : 'text-slate-900'}`}>
@@ -117,13 +140,12 @@ export default function DashboardRobotica() {
             <MiniGraph color={ciclo > 4.0 ? "#ef4444" : "#3b82f6"} data={histCiclo} />
           </MetricCard>
 
-          {/* ACERTO */}
           <MetricCard title="TAXA DE ACERTO (%)" icon={<ShieldCheck size={20} className="text-slate-300"/>}>
             <div className="flex items-baseline gap-2 mb-1">
               <span className="text-5xl font-black text-slate-900 tracking-tighter">{acerto.toFixed(1)}</span>
               <span className="text-slate-400 font-bold text-xl">%</span>
             </div>
-            <div className="h-[14px]" />
+            <div className="text-[10px] font-bold text-blue-500 uppercase mt-2">Cor: {corDetectada}</div>
             <MiniGraph color="#64748b" data={histPecas} />
           </MetricCard>
         </div>
@@ -154,8 +176,14 @@ export default function DashboardRobotica() {
 
           <div className="flex-1 bg-[#0f172a] rounded-3xl p-6 flex flex-col border-t-4 border-blue-500 shadow-xl overflow-hidden">
             <div className="flex-1 overflow-y-auto font-mono text-[11px] space-y-3 scrollbar-hide">
-               <LogEntry time={time} text="CONEXÃO ESTÁVEL" color="text-emerald-400" />
-               <LogEntry time="SISTEMA" text="AGUARDANDO NODE-RED..." color="text-blue-400" />
+               <div className="flex gap-3 border-b border-slate-800/40 pb-2">
+                 <span className="text-slate-500 font-black">[{time}]</span>
+                 <span className="text-emerald-400 font-bold uppercase">SISTEMA ONLINE</span>
+               </div>
+               <div className="flex gap-3 border-b border-slate-800/40 pb-2">
+                 <span className="text-slate-500 font-black">[LOG]</span>
+                 <span className="text-blue-400 font-bold uppercase">Peça {corDetectada} detectada</span>
+               </div>
             </div>
             <div className="grid grid-cols-2 gap-3 mt-6">
               <button className="bg-red-600 hover:bg-red-700 text-white py-4 rounded-2xl flex flex-col items-center justify-center gap-1 font-black transition-all active:scale-95 shadow-lg">
@@ -173,26 +201,20 @@ export default function DashboardRobotica() {
 
       {/* FOOTER */}
       <footer className="bg-[#0f172a] text-white flex items-center h-16 text-xs font-bold border-t-4 border-blue-500 shrink-0 mt-auto">
-        <div className="w-[450px] shrink-0 h-full" />
-        <div className="w-[280px] bg-red-600 h-full flex items-center px-10 gap-4 z-10 shrink-0">
+        <div className="w-1/4 px-8 flex items-center gap-4 bg-red-600 h-full">
           <AlertTriangle size={24} className="animate-pulse" /> 
-          <span className="text-lg italic font-black uppercase">Erro</span>
+          <span className="text-lg italic font-black uppercase">Operação</span>
         </div>
         <div className="flex-1 flex justify-center items-center font-mono px-8 text-center uppercase tracking-wider">
-            <span className="text-red-400 font-black mr-3">[301]</span>
-            <span className="truncate">Obstrução detectada: Verifique a esteira J2</span>
-        </div>
-        <div className="w-[500px] flex items-center justify-center h-full px-8 gap-12 border-l border-slate-800 bg-slate-900/40 shrink-0">
-          <StatusIndicator label="ROBÔ" status="REMOTO" color="bg-green-500" />
-          <StatusIndicator label="PLC" status="RUN" color="bg-green-500" />
+            <span className="truncate">Linha de produção em regime normal</span>
         </div>
       </footer>
     </div>
   );
 }
 
-// SUBCOMPONENTES
-const MetricCard = ({ title, icon, children }: any) => (
+// SUBCOMPONENTES COM TIPAGEM CORRIGIDA
+const MetricCard = ({ title, icon, children }: MetricCardProps) => (
   <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col shrink-0">
     <div className="flex justify-between items-start mb-2 uppercase text-slate-400 font-black text-[11px]">
       <h3>{title}</h3>
@@ -202,7 +224,7 @@ const MetricCard = ({ title, icon, children }: any) => (
   </div>
 );
 
-const MiniGraph = ({ color, data }: any) => (
+const MiniGraph = ({ color, data }: MiniGraphProps) => (
   <div className="h-14 w-full">
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={data}>
@@ -212,14 +234,7 @@ const MiniGraph = ({ color, data }: any) => (
   </div>
 );
 
-const HeaderButton = ({ icon, badge, className = "" }: any) => (
-  <button className={`p-3 rounded-xl border border-slate-100 relative ${className}`}>
-    {icon}
-    {badge && <span className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />}
-  </button>
-);
-
-const KpiBar = ({ label, value, color }: any) => (
+const KpiBar = ({ label, value, color }: KpiBarProps) => (
   <div className="mb-4 last:mb-0 uppercase font-black">
     <div className="flex justify-between text-[10px] mb-1.5 text-slate-500">
       <span>{label}</span>
@@ -227,23 +242,6 @@ const KpiBar = ({ label, value, color }: any) => (
     </div>
     <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden border border-slate-200">
       <div className={`h-full ${color} transition-all duration-700`} style={{ width: `${value}%` }} />
-    </div>
-  </div>
-);
-
-const LogEntry = ({ time, text, color }: any) => (
-  <div className="flex gap-3 border-b border-slate-800/40 pb-2">
-    <span className="text-slate-500 font-black">[{time}]</span>
-    <span className={`${color} font-bold uppercase`}>{text}</span>
-  </div>
-);
-
-const StatusIndicator = ({ label, status, color }: any) => (
-  <div className="flex items-center gap-3 font-black">
-    <span className="text-slate-500 text-[10px] uppercase tracking-widest">{label}</span>
-    <div className="flex items-center gap-2 bg-slate-800 px-4 py-1.5 rounded-xl border border-slate-700 shadow-inner">
-      <div className={`w-2 h-2 ${color} rounded-full`} />
-      <span className="text-white text-[11px] uppercase">{status}</span>
     </div>
   </div>
 );
