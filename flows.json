@@ -1,0 +1,163 @@
+[
+    {
+        "id": "8545f3c7aab87d24",
+        "type": "tab",
+        "label": "Fluxo 3",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "70581c6b66d4030a",
+        "type": "function",
+        "z": "8545f3c7aab87d24",
+        "name": "function 1",
+        "func": "let stats = context.get('stats') || { \n    total: 0, sucessos: 0, falhas: 0, \n    preto: 0, vermelho: 0, cinza: 0 \n};\n\nconst input = msg.payload.toString().toLowerCase();\n\n// --- LÓGICA AUTOMÁTICA DE ERRO (10% de chance) ---\n// Gera um número de 0 a 100. Se for menor que 10, vira erro.\nlet sorteioErro = Math.random() * 100;\nlet ehErro = sorteioErro < 10; // 10% de chance\n\nif (ehErro) {\n    stats.total++;\n    stats.falhas++;\n    context.set('stats', stats);\n    \n    msg.payload = {\n        \"status_robo\": \"PARADA\",\n        \"total_pecas\": stats.sucessos,\n        \"total_falhas\": stats.falhas,\n        \"taxa_acerto\": ((stats.sucessos / stats.total) * 100).toFixed(1) + \"%\",\n        \"ultimo_log\": \"⚠️ ERRO AUTOMÁTICO: FALHA NA SUCÇÃO!\",\n        \"tempo_ciclo\": 0\n    };\n} \nelse {\n    // Lógica Normal (Peças Pretas, Vermelhas, Cinzas)\n    if (input.includes(\"preto\")) stats.preto++;\n    else if (input.includes(\"vermelho\")) stats.vermelho++;\n    else if (input.includes(\"cinza\")) stats.cinza++;\n\n    stats.sucessos++;\n    stats.total++;\n    context.set('stats', stats);\n\n    let taxa = (stats.sucessos / stats.total) * 100;\n\n    msg.payload = {\n        \"status_robo\": \"RUNNING\",\n        \"total_pecas\": stats.sucessos,\n        \"total_falhas\": stats.falhas,\n        \"taxa_acerto\": taxa.toFixed(1) + \"%\",\n        \"ultimo_log\": \"PEÇA \" + input.toUpperCase() + \" PROCESSADA COM SUCESSO\",\n        \"tempo_ciclo\": 4.2\n    };\n}\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 580,
+        "y": 160,
+        "wires": [
+            [
+                "141c62a66107a85f"
+            ]
+        ]
+    },
+    {
+        "id": "141c62a66107a85f",
+        "type": "websocket out",
+        "z": "8545f3c7aab87d24",
+        "name": "",
+        "server": "3c4293d554414327",
+        "client": "",
+        "x": 760,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "67876ba000a813d5",
+        "type": "inject",
+        "z": "8545f3c7aab87d24",
+        "name": "peca preta",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "3",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "preto",
+        "payloadType": "str",
+        "x": 370,
+        "y": 80,
+        "wires": [
+            [
+                "70581c6b66d4030a"
+            ]
+        ]
+    },
+    {
+        "id": "5a038fd269e0d107",
+        "type": "inject",
+        "z": "8545f3c7aab87d24",
+        "name": "peça cinza",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "10",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "cinza",
+        "payloadType": "str",
+        "x": 370,
+        "y": 260,
+        "wires": [
+            [
+                "70581c6b66d4030a"
+            ]
+        ]
+    },
+    {
+        "id": "360d40c2e0c54182",
+        "type": "inject",
+        "z": "8545f3c7aab87d24",
+        "name": "peça verde",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "4",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "verde",
+        "payloadType": "str",
+        "x": 330,
+        "y": 160,
+        "wires": [
+            [
+                "70581c6b66d4030a"
+            ]
+        ]
+    },
+    {
+        "id": "beaa6872307ac47c",
+        "type": "inject",
+        "z": "8545f3c7aab87d24",
+        "name": "erro separaçao",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "error de garra",
+        "payloadType": "str",
+        "x": 380,
+        "y": 340,
+        "wires": [
+            [
+                "70581c6b66d4030a"
+            ]
+        ]
+    },
+    {
+        "id": "3c4293d554414327",
+        "type": "websocket-listener",
+        "path": "/ws/robot",
+        "wholemsg": "false"
+    }
+]
