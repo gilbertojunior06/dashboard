@@ -82,7 +82,7 @@ export default function Home() {
             <span>Cadastro Funcionarios</span>
           </Link>
           
-          <Link href="/" className="nav-item ">
+          <Link href="/maquina" className="nav-item ">
             <Cpu size={20} />
             <span>Maquinas</span>
           </Link>

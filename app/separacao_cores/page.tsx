@@ -1,247 +1,241 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import Image from 'next/image';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
-  Bell, User, Clock, AlertTriangle, RefreshCcw,
-  ShieldCheck, Cpu, LayoutDashboard, Inbox
+  User, Clock, AlertTriangle, 
+  Cpu, LayoutDashboard, Inbox, CheckCircle, XCircle 
 } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
 
-// DEFINIÇÃO DE TIPOS PARA OS COMPONENTES
-interface MetricCardProps {
-  title: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}
+// 1. RESOLVENDO ERRO DE PUREZA: Dados gerados fora do componente
+const INITIAL_CHART_DATA = [
+  { pv: 10 }, { pv: 15 }, { pv: 8 }, { pv: 12 }, { pv: 20 }, 
+  { pv: 14 }, { pv: 10 }, { pv: 18 }, { pv: 12 }, { pv: 15 }
+];
 
-interface MiniGraphProps {
+// 2. DEFININDO INTERFACES PARA MATAR O ERRO DE "ANY"
+interface MetricProps {
+  title: string;
+  value: string | number;
+  unit: string;
+  sub: string;
+  meta?: string;
   color: string;
+  alert?: boolean;
   data: { pv: number }[];
 }
 
-interface KpiBarProps {
+interface CircleProps {
+  bg: string;
+  count: number;
   label: string;
-  value: number | string;
+  active: boolean;
+  icon?: React.ReactNode;
+}
+
+interface ProgressProps {
+  label: string;
+  value: number;
   color: string;
 }
 
 export default function DashboardRobotica() {
   const [time, setTime] = useState('--:--:--');
+  const socketRef = useRef<WebSocket | null>(null);
   
-  // --- ESTADOS EM TEMPO REAL ---
   const [pecas, setPecas] = useState(1248);
   const [ciclo, setCiclo] = useState(4.2);
-  const [acerto, setAcerto] = useState(98.5);
-  const [corDetectada, setCorDetectada] = useState("Aguardando...");
+  const [acerto, setAcerto] = useState("98.5%");
+  const [statusMaquina, setStatusMaquina] = useState("RUNNING");
   
-  // Histórico para os gráficos
-  const [histPecas, setHistPecas] = useState([{ pv: 1100 }, { pv: 1150 }, { pv: 1180 }, { pv: 1248 }]);
-  const [histCiclo, setHistCiclo] = useState([{ pv: 4.5 }, { pv: 4.0 }, { pv: 4.2 }, { pv: 4.1 }]);
+  const [contagemCores, setContagemCores] = useState({ preto: 0, verde: 0, cinza: 0, erros: 0 });
+  const [deteccaoAtiva, setDeteccaoAtiva] = useState(""); 
 
-  // --- CONFIGURAÇÕES DE META ---
-  const META_TOTAL = 1500;
-  const eficiencia = Number(((pecas / META_TOTAL) * 100).toFixed(0));
+  const [logs, setLogs] = useState<{time: string, text: string, color: string, border: string}[]>([
+    { time: '21:33:38', text: "PEÇA AGUARDANDO... DETECTADA", color: "text-blue-600", border: "border-blue-500" },
+    { time: '21:33:30', text: "SISTEMA ONLINE", color: "text-emerald-600", border: "border-emerald-500" }
+  ]);
+
+  // Usando os dados fixos para o gráfico inicial
+  const histPecas = useMemo(() => INITIAL_CHART_DATA, []);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date().toLocaleTimeString('pt-BR')), 1000);
-    
-    // Conexão WebSocket
-    const socket = new WebSocket('wss://3b43-2804-290-e0e-9a00-186d-3ca3-a801-fdf.ngrok-free.app/ws/robotica');
-    
+    const socket = new WebSocket('ws://localhost:1880/ws/robot');
+    socketRef.current = socket;
+
     socket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        const currentTime = new Date().toLocaleTimeString('pt-BR');
         
-        // MAPEAMENTO CORRETO DAS VARIÁVEIS DO NODE-RED
-        if (data.pecas_processadas !== undefined) {
-          setPecas(data.pecas_processadas);
-          setHistPecas(prev => [...prev.slice(-10), { pv: data.pecas_processadas }]);
-        }
-        if (data.tempo_ciclo !== undefined) {
-          setCiclo(Number(data.tempo_ciclo));
-          setHistCiclo(prev => [...prev.slice(-10), { pv: Number(data.tempo_ciclo) }]);
-        }
-        if (data.taxa_acerto !== undefined) {
-          setAcerto(Number(data.taxa_acerto));
-        }
-        if (data.cor_detectada !== undefined) {
-          setCorDetectada(data.cor_detectada);
-        }
+        if (data.status_robo) setStatusMaquina(data.status_robo);
+        if (data.total_pecas !== undefined) setPecas(data.total_pecas);
+        if (data.total_falhas !== undefined) setContagemCores(p => ({...p, erros: data.total_falhas}));
+        if (data.taxa_acerto !== undefined) setAcerto(data.taxa_acerto);
+        if (data.tempo_ciclo !== undefined) setCiclo(data.tempo_ciclo);
 
-      } catch (error) {
-        console.error("Erro ao processar dados do Node-RED:", error);
-      }
+        if (data.ultimo_log) {
+          const txt = data.ultimo_log.toLowerCase();
+          let corLog = "text-slate-600";
+          let bordaLog = "border-slate-300";
+          
+          if (txt.includes("preto")) { 
+            setContagemCores(p => ({...p, preto: p.preto + 1})); 
+            setDeteccaoAtiva("preto"); 
+            corLog = "text-black font-black"; 
+            bordaLog = "border-black";
+          } else if (txt.includes("verde")) { 
+            setContagemCores(p => ({...p, verde: p.verde + 1})); 
+            setDeteccaoAtiva("verde"); 
+            corLog = "text-emerald-600 font-bold";
+            bordaLog = "border-emerald-500";
+          } else if (txt.includes("cinza")) { 
+            setContagemCores(p => ({...p, cinza: p.cinza + 1})); 
+            setDeteccaoAtiva("cinza"); 
+            corLog = "text-slate-500 font-bold";
+            bordaLog = "border-slate-400";
+          } else if (txt.includes("erro") || txt.includes("falha")) {
+            setDeteccaoAtiva("erro");
+            corLog = "text-red-600 font-black animate-pulse";
+            bordaLog = "border-red-600";
+          }
+
+          setLogs(prev => [{ 
+            time: currentTime, 
+            text: data.ultimo_log.toUpperCase(), 
+            color: corLog,
+            border: bordaLog
+          }, ...prev.slice(0, 10)]);
+        }
+      } catch (e) { console.error("Erro WebSocket:", e); }
     };
 
-    socket.onerror = () => console.error("Erro na conexão WebSocket");
-
-    return () => {
-      clearInterval(timer);
-      socket.close();
+    return () => { 
+      clearInterval(timer); 
+      if (socketRef.current) socketRef.current.close(); 
     };
   }, []);
 
   return (
     <div className="flex flex-col min-h-screen bg-[#f1f5f9] text-slate-700 font-sans overflow-hidden text-sm">
-      
-      {/* HEADER */}
-      <header className="flex items-center justify-between px-8 h-20 bg-white border-b-2 border-slate-200 shadow-sm shrink-0">
+      <header className="flex items-center justify-between px-8 h-20 bg-white border-b-2 border-slate-200 shadow-sm shrink-0 z-10">
         <div className="flex items-center gap-5">
-          <div className="relative w-12 h-12 bg-blue-50 rounded-2xl p-1.5 border border-blue-100">
-            <Image src="/robo.png" alt="Logo" fill className="object-contain p-1" />
-          </div>
+          <Cpu size={40} className="text-blue-600" />
           <div>
-            <h1 className="text-2xl font-black text-slate-800 tracking-tight leading-none">Célula Robótica - SENAI Tech</h1>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1">Monitoramento em Tempo Real</p>
+            <h1 className="text-2xl font-black text-[#0f172a] tracking-tight uppercase">Célula Robótica - SENAI | Tech</h1>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Painel de Controle e Monitoramento</p>
           </div>
         </div>
-        
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-4 bg-slate-900 px-6 py-2.5 rounded-2xl border border-slate-700 shadow-lg">
+        <div className="flex items-center gap-4">
+          <div className="bg-[#0f172a] px-6 py-2 rounded-full text-white flex items-center gap-3 border-2 border-blue-500/30">
             <Clock className="w-5 h-5 text-blue-400" />
-            <span className="text-xl font-black font-mono text-white tracking-widest">{time}</span>
+            <span className="text-2xl font-black font-mono">{time}</span>
           </div>
-          <div className="flex gap-2">
-             <button className="p-3 rounded-xl border border-slate-100 relative"><Bell size={22} /><span className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full border-2 border-white" /></button>
-             <button className="p-3 rounded-xl border border-slate-100 bg-blue-600 text-white"><User size={22} /></button>
-          </div>
+          <User className="text-slate-400 border-2 border-slate-200 rounded-full p-1" size={32}/>
         </div>
       </header>
 
-      {/* CONTEÚDO PRINCIPAL */}
-      <main className="flex flex-1 p-6 gap-6 overflow-hidden min-h-0">
-        
-        <div className="w-[28%] flex flex-col gap-4 overflow-y-auto pr-2">
-          <MetricCard title="PEÇAS PROCESSADAS" icon={<Inbox size={20} className="text-slate-300"/>}>
-            <div className="flex items-baseline gap-2 mb-1">
-              <span className="text-5xl font-black text-slate-900 tracking-tighter">{pecas.toLocaleString('pt-BR')}</span>
-              <span className="text-slate-400 font-bold text-xl">un</span>
-            </div>
-            <div className="flex justify-between text-[11px] font-bold text-slate-400 uppercase mb-3">
-              <span>Meta: {META_TOTAL.toLocaleString('pt-BR')}</span>
-              <span>Eficiência: {eficiencia}%</span>
-            </div>
-            <MiniGraph color="#3b82f6" data={histPecas} />
-          </MetricCard>
-
-          <MetricCard title="TEMPO DE CICLO (S)" icon={<Clock size={20} className="text-slate-300"/>}>
-            <div className="flex items-baseline gap-2 mb-1">
-              <span className={`text-5xl font-black tracking-tighter ${ciclo > 4.0 ? 'text-red-500' : 'text-slate-900'}`}>
-                {ciclo.toFixed(1)}
-              </span>
-              <span className={`${ciclo > 4.0 ? 'text-red-500' : 'text-slate-400'} font-bold text-xl uppercase`}>s</span>
-              {ciclo > 4.0 && <AlertTriangle size={20} className="text-red-500 animate-bounce ml-1" />}
-            </div>
-            <div className="flex justify-between text-[11px] font-bold text-slate-400 uppercase mb-3">
-              <span>Min: 3.5s</span>
-              <span>Max: 4.0s</span>
-            </div>
-            <MiniGraph color={ciclo > 4.0 ? "#ef4444" : "#3b82f6"} data={histCiclo} />
-          </MetricCard>
-
-          <MetricCard title="TAXA DE ACERTO (%)" icon={<ShieldCheck size={20} className="text-slate-300"/>}>
-            <div className="flex items-baseline gap-2 mb-1">
-              <span className="text-5xl font-black text-slate-900 tracking-tighter">{acerto.toFixed(1)}</span>
-              <span className="text-slate-400 font-bold text-xl">%</span>
-            </div>
-            <div className="text-[10px] font-bold text-blue-500 uppercase mt-2">Cor: {corDetectada}</div>
-            <MiniGraph color="#64748b" data={histPecas} />
-          </MetricCard>
+      <main className="flex flex-1 p-6 gap-6 overflow-hidden mb-16">
+        <div className="w-[28%] flex flex-col gap-4">
+          <MetricCard title="PEÇAS PROCESSADAS" value={pecas} unit="un" sub="META: 1.500" meta="EFICIÊNCIA: 83%" color="text-blue-600" data={histPecas} />
+          <MetricCard title="TEMPO DE CICLO (S)" value={ciclo.toFixed(1)} unit="s" sub="MIN: 3.5s" meta="MAX: 4.8s" color="text-red-500" alert={statusMaquina === "PARADA"} data={histPecas} />
+          <MetricCard title="TAXA DE ACERTO (%)" value={acerto} unit="" sub="SENSOR: ATIVO" color="text-slate-900" data={histPecas} />
         </div>
 
-        {/* CENTRO - CÂMERA */}
-        <div className="flex-1 bg-white rounded-[2.5rem] border-2 border-slate-200 p-8 flex flex-col shadow-sm relative text-center">
-          <h3 className="text-xs font-black text-slate-400 tracking-widest uppercase mb-6 flex items-center justify-center gap-2">
-            <LayoutDashboard size={16} className="text-blue-500" /> Monitoramento de Célula
-          </h3>
-          <div className="flex-1 flex flex-col items-center justify-center">
-            <div className="w-full max-w-2xl aspect-video bg-slate-900 rounded-[2.5rem] flex items-center justify-center relative border-8 border-slate-50 shadow-2xl overflow-hidden">
-               <Cpu size={80} className="text-blue-500/10 animate-pulse" />
-               <div className="absolute top-8 right-8 flex items-center gap-2 bg-red-600 px-4 py-1.5 rounded-full shadow-lg">
-                  <div className="w-2 h-2 bg-white rounded-full animate-ping" />
-                  <span className="text-white text-[10px] font-black uppercase">Live Feed</span>
-               </div>
-            </div>
-          </div>
+        <div className="flex-1 bg-white rounded-[2.5rem] border-2 border-slate-200 p-6 flex flex-col shadow-sm">
+           <div className="flex items-center gap-2 mb-4 text-blue-500 font-bold uppercase text-[11px]">
+             <LayoutDashboard size={16}/> MONITORAMENTO DE CÉLULA
+           </div>
+           <div className="flex-1 flex flex-col gap-4">
+             <div className="flex-[3] bg-[#0f172a] rounded-[2rem] relative flex items-center justify-center overflow-hidden border-[10px] border-slate-50 shadow-inner">
+                <span className="absolute top-6 right-8 bg-red-600 text-white text-[10px] font-black px-3 py-1 rounded-full animate-pulse z-20">LIVE FEED</span>
+                <Cpu size={80} className="text-white opacity-5" />
+             </div>
+             <div className="flex-[1.5] flex justify-around items-center bg-slate-50 rounded-[2rem] p-4 border-2 border-slate-100 shadow-sm">
+                <Circle bg="bg-black" count={contagemCores.preto} label="PRETO" active={deteccaoAtiva === "preto"} />
+                <Circle bg="bg-emerald-600" count={contagemCores.verde} label="VERDE" active={deteccaoAtiva === "verde"} />
+                <Circle bg="bg-slate-400" count={contagemCores.cinza} label="CINZA" active={deteccaoAtiva === "cinza"} />
+                <Circle bg="bg-red-950" count={contagemCores.erros} label="FALHA" active={deteccaoAtiva === "erro"} icon={<XCircle className="text-red-500" size={20}/>} />
+             </div>
+           </div>
         </div>
 
-        {/* DIREITA - KPI */}
-        <div className="w-[25%] flex flex-col gap-6">
-          <div className="bg-white rounded-3xl border-2 border-slate-200 p-6 shadow-sm">
-            <h3 className="text-xs font-black text-slate-400 tracking-widest uppercase mb-4 italic">Status de Linha</h3>
-            <KpiBar label="OEE Global" value={eficiencia} color="bg-blue-500" />
-            <KpiBar label="Saúde de Ativos" value={99} color="bg-slate-900" />
+        <div className="w-[25%] flex flex-col gap-4">
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <h3 className="italic font-black text-[11px] mb-3 uppercase tracking-tighter text-slate-400">STATUS DE LINHA</h3>
+              <StatusProgress label="OEE GLOBAL" value={83} color="bg-blue-500" />
+              <StatusProgress label="SAÚDE DE ATIVOS" value={99} color="bg-slate-900" />
           </div>
-
-          <div className="flex-1 bg-[#0f172a] rounded-3xl p-6 flex flex-col border-t-4 border-blue-500 shadow-xl overflow-hidden">
-            <div className="flex-1 overflow-y-auto font-mono text-[11px] space-y-3 scrollbar-hide">
-               <div className="flex gap-3 border-b border-slate-800/40 pb-2">
-                 <span className="text-slate-500 font-black">[{time}]</span>
-                 <span className="text-emerald-400 font-bold uppercase">SISTEMA ONLINE</span>
-               </div>
-               <div className="flex gap-3 border-b border-slate-800/40 pb-2">
-                 <span className="text-slate-500 font-black">[LOG]</span>
-                 <span className="text-blue-400 font-bold uppercase">Peça {corDetectada} detectada</span>
-               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3 mt-6">
-              <button className="bg-red-600 hover:bg-red-700 text-white py-4 rounded-2xl flex flex-col items-center justify-center gap-1 font-black transition-all active:scale-95 shadow-lg">
-                <AlertTriangle size={22} />
-                <span className="text-[10px] uppercase">Parada</span>
-              </button>
-              <button className="bg-slate-800 hover:bg-slate-700 text-white py-4 rounded-2xl flex flex-col items-center justify-center gap-1 font-black border border-slate-700 transition-all active:scale-95 shadow-lg">
-                <RefreshCcw size={22} />
-                <span className="text-[10px] uppercase">Reset</span>
-              </button>
+          <div className="flex-1 bg-slate-50 rounded-3xl p-5 flex flex-col overflow-hidden border-2 border-white shadow-md">
+            <h3 className="text-slate-400 text-[10px] font-black mb-3 uppercase tracking-widest text-center border-b border-slate-200 pb-2">Log de Eventos</h3>
+            <div className="flex-1 font-mono text-[10px] space-y-2 overflow-y-auto pr-2 custom-scrollbar">
+              {logs.map((l, i) => (
+                <div key={i} className={`flex flex-col gap-1 py-2 px-3 rounded-lg bg-white border-l-4 ${l.border} shadow-sm transition-all duration-300`}>
+                  <div className="flex justify-between items-center opacity-60">
+                    <span className="text-[9px] text-slate-500 font-bold">🕒 {l.time}</span>
+                  </div>
+                  <span className={`${l.color} text-[11px] leading-tight tracking-tight`}>{l.text}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </main>
 
-      {/* FOOTER */}
-      <footer className="bg-[#0f172a] text-white flex items-center h-16 text-xs font-bold border-t-4 border-blue-500 shrink-0 mt-auto">
-        <div className="w-1/4 px-8 flex items-center gap-4 bg-red-600 h-full">
-          <AlertTriangle size={24} className="animate-pulse" /> 
-          <span className="text-lg italic font-black uppercase">Operação</span>
-        </div>
-        <div className="flex-1 flex justify-center items-center font-mono px-8 text-center uppercase tracking-wider">
-            <span className="truncate">Linha de produção em regime normal</span>
+      <footer className={`fixed bottom-0 w-full p-4 flex justify-between items-center z-50 ${
+        statusMaquina === "RUNNING" ? "bg-emerald-600" : "bg-red-600"
+      }`}>
+        <div className="flex items-center gap-3 text-white font-black italic px-4">
+          {statusMaquina === "RUNNING" ? <CheckCircle size={28} /> : <AlertTriangle size={28} className="animate-bounce" />}
+          <span className="text-2xl tracking-tighter uppercase">
+            {statusMaquina === "RUNNING" ? "SISTEMA EM OPERAÇÃO" : "FALHA / PARADA TÉCNICA"}
+          </span>
         </div>
       </footer>
     </div>
   );
 }
 
-// SUBCOMPONENTES COM TIPAGEM CORRIGIDA
-const MetricCard = ({ title, icon, children }: MetricCardProps) => (
-  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col shrink-0">
-    <div className="flex justify-between items-start mb-2 uppercase text-slate-400 font-black text-[11px]">
-      <h3>{title}</h3>
-      {icon}
+// COMPONENTES COM TIPAGEM CORRETA (ADEUS ANY!)
+const MetricCard = ({ title, value, unit, sub, meta, color, alert, data }: MetricProps) => (
+  <div className={`bg-white p-5 rounded-xl border-2 transition-all ${alert ? 'border-red-500 bg-red-50' : 'border-slate-100'} shadow-sm relative overflow-hidden flex-1`}>
+    <div className="flex justify-between items-center text-[10px] font-black text-slate-400 mb-1 uppercase">{title} <Inbox size={14}/></div>
+    <div className="flex items-baseline gap-1">
+      <span className={`text-3xl font-black ${color}`}>{value.toLocaleString('pt-BR')}</span>
+      <span className="text-slate-400 font-bold text-base ml-1">{unit}</span>
     </div>
-    {children}
+    <div className="h-6 w-full mt-2 opacity-30">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={data}><Line type="monotone" dataKey="pv" stroke={alert ? '#ef4444' : '#3b82f6'} strokeWidth={2} dot={false} /></LineChart>
+      </ResponsiveContainer>
+    </div>
+    <div className="flex justify-between mt-2 text-[9px] font-black text-slate-400 border-t pt-2 uppercase tracking-widest">
+      <span>{sub}</span> <span className="text-blue-500">{meta}</span>
+    </div>
   </div>
 );
 
-const MiniGraph = ({ color, data }: MiniGraphProps) => (
-  <div className="h-14 w-full">
-    <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={data}>
-        <Line type="monotone" dataKey="pv" stroke={color} strokeWidth={3} dot={false} isAnimationActive={false} />
-      </LineChart>
-    </ResponsiveContainer>
+const Circle = ({ bg, count, label, active, icon }: CircleProps) => (
+  <div className="flex flex-col items-center gap-2">
+    <div className={`${bg} w-16 h-16 rounded-full border-4 flex flex-col items-center justify-center transition-all duration-300 relative shadow-inner ${
+        active 
+        ? 'border-blue-400 scale-110 shadow-lg' 
+        : 'border-white/10 opacity-30'}`}>
+      {icon && active && <div className="absolute top-1">{icon}</div>}
+      <span className="text-white text-xl font-black">{count}</span>
+    </div>
+    <span className={`text-[9px] font-black tracking-widest text-center transition-colors ${active ? 'text-slate-900' : 'text-slate-300'}`}>{label}</span>
   </div>
 );
 
-const KpiBar = ({ label, value, color }: KpiBarProps) => (
-  <div className="mb-4 last:mb-0 uppercase font-black">
-    <div className="flex justify-between text-[10px] mb-1.5 text-slate-500">
-      <span>{label}</span>
-      <span className="text-slate-900">{value}%</span>
+const StatusProgress = ({ label, value, color }: ProgressProps) => (
+  <div className="mb-3">
+    <div className="flex justify-between text-[8px] font-black mb-1 text-slate-500 uppercase tracking-tighter">
+      <span>{label}</span> <span>{value}%</span>
     </div>
-    <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden border border-slate-200">
-      <div className={`h-full ${color} transition-all duration-700`} style={{ width: `${value}%` }} />
+    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+      <div className={`h-full ${color} transition-all duration-1000`} style={{ width: `${value}%` }}></div>
     </div>
   </div>
 );
